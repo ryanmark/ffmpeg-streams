@@ -29,7 +29,7 @@ LIBASS_DEPS = \
 	build/fribidi/dist/lib/libfribidi.so \
 	build/freetype/dist/lib/libfreetype.so
 WEBM_SHARED_DEPS = \
-	build/opus/dist/lib/libopus.so \
+	build/opus/dist/lib/libopus.dylib \
 	build/libvpx/dist/lib/libvpx.so
 
 MP4_MUXERS = mp4 mp3 null
@@ -76,6 +76,9 @@ build/opus/dist/lib/libopus.so: build/opus/configure
 	cd build/opus && \
 	emconfigure ./configure \
 		CFLAGS=-O3 \
+		CC=emcc \
+		AR=emar \
+		RANLIB=emranlib \
 		--prefix="$$(pwd)/dist" \
 		--disable-static \
 		--disable-doc \
@@ -222,6 +225,8 @@ build/x264/dist/lib/libx264.so:
 # - <https://ffmpeg.org/pipermail/libav-user/2013-February/003698.html>
 FFMPEG_COMMON_ARGS = \
 	--cc=emcc \
+	--ar=emar \
+	--ranlib=emranlib \
 	--enable-cross-compile \
 	--target-os=none \
 	--arch=x86 \
