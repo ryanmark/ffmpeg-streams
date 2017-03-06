@@ -1,0 +1,13 @@
+diff --git a/libavutil/random_seed.c b/libavutil/random_seed.c
+index d1ded7b..675f3b9 100644
+--- a/libavutil/random_seed.c
++++ b/libavutil/random_seed.c
+@@ -126,7 +126,7 @@ uint32_t av_get_random_seed(void)
+     }
+ #endif
+ 
+-#if HAVE_ARC4RANDOM
++#if 0 && HAVE_ARC4RANDOM
+     return arc4random();
+ #endif
+ 

@@ -29,8 +29,6 @@ LIBASS_DEPS = \
 	build/fribidi/dist/lib/libfribidi.so \
 	build/freetype/dist/lib/libfreetype.so
 WEBM_SHARED_DEPS = \
-	$(LIBASS_DEPS) \
-	build/libass/dist/lib/libass.so \
 	build/opus/dist/lib/libopus.so \
 	build/libvpx/dist/lib/libvpx.so
 
@@ -253,6 +251,7 @@ FFMPEG_COMMON_ARGS = \
 	$(addprefix --enable-decoder=,$(COMMON_DECODERS)) \
 	$(addprefix --enable-demuxer=,$(COMMON_DEMUXERS)) \
 	--enable-protocol=file \
+	--enable-protocol=pipe \
 	$(addprefix --enable-filter=,$(COMMON_FILTERS)) \
 	--disable-bzlib \
 	--disable-iconv \
@@ -268,12 +267,11 @@ build/ffmpeg-webm/ffmpeg.bc: $(WEBM_SHARED_DEPS)
 	git reset --hard && \
 	patch -p1 < ../ffmpeg-default-font.patch && \
 	patch -p1 < ../ffmpeg-disable-monotonic.patch && \
+	patch -p1 < ../ffmpeg-no-arc4random.patch && \
 	EM_PKG_CONFIG_PATH=$(FFMPEG_WEBM_PC_PATH) emconfigure ./configure \
 		$(FFMPEG_COMMON_ARGS) \
 		$(addprefix --enable-encoder=,$(WEBM_ENCODERS)) \
 		$(addprefix --enable-muxer=,$(WEBM_MUXERS)) \
-		--enable-filter=subtitles \
-		--enable-libass \
 		--enable-libopus \
 		--enable-libvpx \
 		--extra-cflags="-I../libvpx/dist/include" \
