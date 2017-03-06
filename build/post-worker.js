@@ -3,8 +3,10 @@
 
 var __ffmpegjs_running = false;
 
+var __bufSize = 1024;
+
 self.onmessage = function(e) {
-  function makeOutHandler(cb) {
+  function makeOutLineHandler(cb) {
     var buf = [];
     return function(ch, exit) {
       if (exit && buf.length) return cb(__ffmpegjs_utf8ToStr(buf, 0));
@@ -19,7 +21,31 @@ self.onmessage = function(e) {
     };
   }
 
+  function makeOutBinaryHandler(cb) {
+    var buf = new Uint8Array(__bufSize);
+    var bufIndex = 0;
+    return function(byte, exit) {
+      if (exit) {
+        if (bufIndex) {
+          cb(new Unit8Aray(buf, 0, bufIndex));
+        }
+      } else if (bufIndex === buf.length - 1) {
+        buf[bufIndex] = byte;
+        cb(buf);
+
+        bufIndex = 0;
+        buf = new Unit8Array(__bufSize);
+      } else {
+        buf[bufIndex] = byte;
+        ++bufIndex;
+      }
+    };
+  }
+
   var msg = e.data;
+
+  var data = [];
+
   if (msg["type"] == "run") {
     if (__ffmpegjs_running) {
       self.postMessage({"type": "error", "data": "already running"});
@@ -33,15 +59,13 @@ self.onmessage = function(e) {
         }
       });
       opts["stdin"] = function() {
-        // NOTE(Kagami): Since it's not possible to pass stdin callback
-        // via Web Worker message interface, set stdin to no-op. We are
-        // messing with other handlers anyway.
+        return data.shift();
       };
-      opts["stdout"] = makeOutHandler(function(line) {
-        self.postMessage({"type": "stdout", "data": line});
+      opts["stdout"] = makeOutBinaryHandler(function(data) {
+        self.postMessage({"type": "stdout", "data": data}, [data.buffer]);
       });
-      opts["stderr"] = makeOutHandler(function(line) {
-        self.postMessage({"type": "stderr", "data": line});
+      opts["stderr"] = makeOutLineHandler(function(data) {
+        self.postMessage({"type": "stderr", "data": data});
       });
       opts["onExit"] = function(code) {
         // Flush buffers.
@@ -58,6 +82,8 @@ self.onmessage = function(e) {
       self.postMessage({"type": "done", "data": result}, transfer);
       __ffmpegjs_running = false;
     }
+  } if (msg["type"] === 'stdin') {
+    data.push(msg["data"]);
   } else {
     self.postMessage({"type": "error", "data": "unknown command"});
   }
