@@ -1,0 +1,41 @@
+diff --git a/libavformat/file.c b/libavformat/file.c
+index 264542a..c34a4b5 100644
+--- a/libavformat/file.c
++++ b/libavformat/file.c
+@@ -37,6 +37,7 @@
+ #include <stdlib.h>
+ #include "os_support.h"
+ #include "url.h"
++#include "emscripten.h"
+ 
+ /* Some systems may not have S_ISFIFO */
+ #ifndef S_ISFIFO
+@@ -115,6 +116,19 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
+     return (ret == -1) ? AVERROR(errno) : ret;
+ }
+ 
++static int pipe_read(URLContext *h, unsigned char *buf, int size)
++{
++    FileContext *c = h->priv_data;
++    int ret;
++    emscripten_sleep(1);
++    size = FFMIN(size, c->blocksize);
++    ret = read(c->fd, buf, size);
++    if (ret == 0 && c->follow) {
++        return AVERROR(EAGAIN);
++    }
++    return (ret == -1) ? AVERROR(errno) : ret;
++}
++
+ static int file_write(URLContext *h, const unsigned char *buf, int size)
+ {
+     FileContext *c = h->priv_data;
+@@ -386,7 +400,7 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
+ const URLProtocol ff_pipe_protocol = {
+     .name                = "pipe",
+     .url_open            = pipe_open,
+-    .url_read            = file_read,
++    .url_read            = pipe_read,
+     .url_write           = file_write,
+     .url_get_file_handle = file_get_handle,
+     .url_check           = file_check,

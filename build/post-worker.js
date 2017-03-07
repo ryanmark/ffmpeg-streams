@@ -5,6 +5,9 @@ var __ffmpegjs_running = false;
 
 var __bufSize = 1024;
 
+var __dataIndex = 0;
+var __data = [];
+
 self.onmessage = function(e) {
   function makeOutLineHandler(cb) {
     var buf = [];
@@ -44,8 +47,6 @@ self.onmessage = function(e) {
 
   var msg = e.data;
 
-  var data = [];
-
   if (msg["type"] == "run") {
     if (__ffmpegjs_running) {
       self.postMessage({"type": "error", "data": "already running"});
@@ -59,10 +60,26 @@ self.onmessage = function(e) {
         }
       });
       opts["stdin"] = function() {
-        return data.shift();
+        if (__data.length === 0) {
+          return undefined;
+        } else {
+          var current = __data[0];
+
+          if (__dataIndex < current.length) {
+            return current[__dataIndex++];
+          } else {
+            __data.shift();
+            __dataIndex = 0;
+            return undefined;
+          }
+        }
       };
       opts["stdout"] = makeOutBinaryHandler(function(data) {
-        self.postMessage({"type": "stdout", "data": data}, [data.buffer]);
+        try {
+          self.postMessage({"type": "stdout", "data": data}, [data.buffer]);
+        } catch(e) {
+          console.log(e);
+        }
       });
       opts["stderr"] = makeOutLineHandler(function(data) {
         self.postMessage({"type": "stderr", "data": data});
@@ -76,14 +93,14 @@ self.onmessage = function(e) {
       // TODO(Kagami): Should we wrap this function into try/catch in
       // case of possible exception?
       var result = __ffmpegjs(opts);
-      var transfer = result["MEMFS"].map(function(file) {
-        return file["data"].buffer;
-      });
-      self.postMessage({"type": "done", "data": result}, transfer);
-      __ffmpegjs_running = false;
+      //var transfer = result["MEMFS"].map(function(file) {
+      //return file["data"].buffer;
+      //});
+      //self.postMessage({"type": "done", "data": result}, transfer);
+      //__ffmpegjs_running = false;
     }
-  } if (msg["type"] === 'stdin') {
-    data.push(msg["data"]);
+  } else if (msg["type"] === 'stdin') {
+    __data.push(new Uint8Array((new FileReaderSync).readAsArrayBuffer(msg["data"])));
   } else {
     self.postMessage({"type": "error", "data": "unknown command"});
   }
