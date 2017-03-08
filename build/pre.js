@@ -1,3 +1,4 @@
+
 self.onmessage = function (event) {
   var type = event.data.type;
   var data = event.data.data;
@@ -5,15 +6,56 @@ self.onmessage = function (event) {
   switch(type) {
   case 'stdin': receiveStdin(data); break;
   case 'run':   start(data);        break;
+  case 'finish': finish();          break;
   default: console.log('unknown message type: ', type);
   }
 };
 
+self.onerror = function(error) {
+  console.log(error);
+  flushStdout();
+
+  self.postMessage({
+    "type": "exit",
+    "data": error.status
+  });
+};
+
+var drain = false;
 var stdinQueue = [];
 var stdinIndex = 0;
 
+var __setTimeout = setTimeout;
+
+var noop = function () {};
+var onNextInput = noop;
+
+setTimeout = function (fn, delay) {
+  if (drain || stdinQueue.length > 0) {
+    console.log('running');
+    return __setTimeout(fn, 0);
+  } else {
+    console.log('putting away');
+    onNextInput = fn;
+    return 1;
+  }
+};
+
 function receiveStdin (blob) {
-  stdinQueue.push(new Uint8Array((new FileReaderSync).readAsArrayBuffer(blob)));
+  var data = new Uint8Array((new FileReaderSync()).readAsArrayBuffer(blob));
+  console.log('stdin', data);
+  stdinQueue.push(data);
+
+  __setTimeout(onNextInput, 0);
+  onNextInput = noop;
+}
+
+function finish() {
+  drain = true;
+  stdinQueue.push(new Int8Array([-1]));
+
+  __setTimeout(onNextInput, 0);
+  onNextInput = noop;
 }
 
 function stdinHandler() {
@@ -27,7 +69,7 @@ function stdinHandler() {
     } else {
       stdinQueue.shift();
       stdinIndex = 0;
-      return null;
+      return stdinHandler();
     }
   }
 };
@@ -35,17 +77,6 @@ function stdinHandler() {
 var stdoutSize = 1024;
 var stdoutBuffer = new Uint8Array(stdoutSize);
 var stdoutIndex = 0;
-
-var lastByte = null;
-
-self.onerror = function(error) {
-  flushStdout();
-
-  self.postMessage({
-    "type": "exit",
-    "data": error.status
-  });
-};
 
 function flushStdout() {
   try {
@@ -75,7 +106,6 @@ function stdoutHandler(byte) {
 function start(args) {
   var Module = {
     "arguments": args,
-    "noExitRuntime": true,
     "stdin": stdinHandler,
     "stdout": stdoutHandler,
     "printErr": function (str) { self.postMessage({ "type": "stderr", "data": str }); },

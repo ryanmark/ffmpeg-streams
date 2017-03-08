@@ -310,7 +310,9 @@ EMCC_COMMON_ARGS = \
 	-s OUTLINING_LIMIT=20000 \
   -s EMTERPRETIFY=1	\
 	-s EMTERPRETIFY_ASYNC=1 \
-	-O3 --memory-init-file 0 \
+	-s EMTERPRETIFY_WHITELIST='["_main","_pipe_read","_ffurl_read","_io_read_packet","_fill_buffer","_avio_read","_avio_feof","_avio_rb32","_av_probe_input_buffer2","_avformat_open_input","_open_input_file","_open_files","_ffmpeg_parse_options","_ebml_parse_elem","_ebml_parse","_ebml_read_num","_matroska_parse_cluster","_matroska_read_packet","_ff_read_packet","_read_frame_internal","_avformat_find_stream_info","_av_read_frame","_transcode","_transcode$$0","_avio_r8"]' \
+	-O3 -g3 --memory-init-file 0 \
+  --profiling-funcs \
 	--pre-js $(PRE_JS) \
 	-o $@
 
