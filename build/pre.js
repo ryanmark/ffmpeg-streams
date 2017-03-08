@@ -32,19 +32,15 @@ var onNextInput = noop;
 
 setTimeout = function (fn, delay) {
   if (drain || stdinQueue.length > 0) {
-    console.log('running');
     return __setTimeout(fn, 0);
   } else {
-    console.log('putting away');
     onNextInput = fn;
     return 1;
   }
 };
 
 function receiveStdin (blob) {
-  var data = new Uint8Array((new FileReaderSync()).readAsArrayBuffer(blob));
-  console.log('stdin', data);
-  stdinQueue.push(data);
+  stdinQueue.push(new Uint8Array((new FileReaderSync()).readAsArrayBuffer(blob)));
 
   __setTimeout(onNextInput, 0);
   onNextInput = noop;
@@ -52,6 +48,7 @@ function receiveStdin (blob) {
 
 function finish() {
   drain = true;
+  // Put EOF on the input
   stdinQueue.push(new Int8Array([-1]));
 
   __setTimeout(onNextInput, 0);
