@@ -27,17 +27,18 @@ self.onmessage = function(e) {
   function makeOutBinaryHandler(cb) {
     var buf = new Uint8Array(__bufSize);
     var bufIndex = 0;
+
     return function(byte, exit) {
       if (exit) {
         if (bufIndex) {
-          cb(new Unit8Aray(buf, 0, bufIndex));
+          cb(new Uint8Array(buf, 0, bufIndex));
         }
       } else if (bufIndex === buf.length - 1) {
         buf[bufIndex] = byte;
         cb(buf);
 
         bufIndex = 0;
-        buf = new Unit8Array(__bufSize);
+        buf = new Uint8Array(__bufSize);
       } else {
         buf[bufIndex] = byte;
         ++bufIndex;
@@ -61,7 +62,7 @@ self.onmessage = function(e) {
       });
       opts["stdin"] = function() {
         if (__data.length === 0) {
-          return undefined;
+          return null;
         } else {
           var current = __data[0];
 
@@ -70,16 +71,12 @@ self.onmessage = function(e) {
           } else {
             __data.shift();
             __dataIndex = 0;
-            return undefined;
+            return null;
           }
         }
       };
       opts["stdout"] = makeOutBinaryHandler(function(data) {
-        try {
-          self.postMessage({"type": "stdout", "data": data}, [data.buffer]);
-        } catch(e) {
-          console.log(e);
-        }
+        self.postMessage({"type": "stdout", "data": data}, [data.buffer]);
       });
       opts["stderr"] = makeOutLineHandler(function(data) {
         self.postMessage({"type": "stderr", "data": data});
