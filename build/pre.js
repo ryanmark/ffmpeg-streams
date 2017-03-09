@@ -1,13 +1,13 @@
-
 self.onmessage = function (event) {
   var type = event.data.type;
   var data = event.data.data;
 
   switch(type) {
-  case 'stdin': receiveStdin(data); break;
-  case 'run':   start(data);        break;
-  case 'finish': finish();          break;
-  default: console.log('unknown message type: ', type);
+  case 'stdin':  receiveStdin(data); break;
+  case 'run':    start(data);        break;
+  case 'finish': finish();           break;
+  default:
+    self.postMessage({ type: 'error', data: 'unknown message type: ' + type });
   }
 };
 
@@ -25,18 +25,13 @@ var drain = false;
 var stdinQueue = [];
 var stdinIndex = 0;
 
-var __setTimeout = setTimeout;
-
 var noop = function () {};
 var onNextInput = noop;
 
-setTimeout = function (fn, delay) {
-  if (drain || stdinQueue.length > 0) {
-    return __setTimeout(fn, 0);
-  } else {
-    onNextInput = fn;
-    return 1;
-  }
+var __setTimeout = self.setTimeout;
+
+self.setTimeout = function (fn, delay) {
+  onNextInput = fn;
 };
 
 function receiveStdin (blob) {
@@ -71,7 +66,7 @@ function stdinHandler() {
   }
 };
 
-var stdoutSize = 1024;
+var stdoutSize = 16384;
 var stdoutBuffer = new Uint8Array(stdoutSize);
 var stdoutIndex = 0;
 

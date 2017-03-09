@@ -1,5 +1,5 @@
 diff --git a/libavformat/file.c b/libavformat/file.c
-index 264542a..c34a4b5 100644
+index 264542a..bf8dc39 100644
 --- a/libavformat/file.c
 +++ b/libavformat/file.c
 @@ -37,6 +37,7 @@
@@ -10,7 +10,7 @@ index 264542a..c34a4b5 100644
  
  /* Some systems may not have S_ISFIFO */
  #ifndef S_ISFIFO
-@@ -115,6 +116,19 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
+@@ -115,6 +116,26 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
      return (ret == -1) ? AVERROR(errno) : ret;
  }
  
@@ -18,7 +18,14 @@ index 264542a..c34a4b5 100644
 +{
 +    FileContext *c = h->priv_data;
 +    int ret;
-+    emscripten_sleep(1);
++
++#if __EMSCRIPTEN__
++    /* yield if the stdinQueue is empty */
++    if (EM_ASM_INT({ return !drain && stdinQueue.length === 0 ? 1 : 0; }, 0)) {
++      emscripten_sleep(1);
++    }
++#endif
++
 +    size = FFMIN(size, c->blocksize);
 +    ret = read(c->fd, buf, size);
 +    if (ret == 0 && c->follow) {
@@ -30,7 +37,7 @@ index 264542a..c34a4b5 100644
  static int file_write(URLContext *h, const unsigned char *buf, int size)
  {
      FileContext *c = h->priv_data;
-@@ -386,7 +400,7 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
+@@ -386,7 +407,7 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
  const URLProtocol ff_pipe_protocol = {
      .name                = "pipe",
      .url_open            = pipe_open,
