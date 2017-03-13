@@ -34,8 +34,14 @@ self.setTimeout = function (fn, delay) {
   onNextInput = fn;
 };
 
-function receiveStdin (blob) {
-  stdinQueue.push(new Uint8Array((new FileReaderSync()).readAsArrayBuffer(blob)));
+function receiveStdin (data) {
+  var buffer = (
+    data instanceof ArrayBuffer ? new Uint8Array(data) :
+    data instanceof Blob ? new Uint8Array((new FileReaderSync()).readAsArrayBuffer(data)) :
+    data
+  );
+
+  stdinQueue.push(buffer);
 
   __setTimeout(onNextInput, 0);
   onNextInput = noop;
@@ -59,6 +65,12 @@ function stdinHandler() {
     if (stdinIndex < current.length) {
       return current[stdinIndex++];
     } else {
+      // TODO send the data back to avoid allocation
+      // self.postMessage({
+      //   type: 'usedBuffer',
+      //   data: current
+      // }, data.buffer);
+
       stdinQueue.shift();
       stdinIndex = 0;
       return stdinHandler();

@@ -7,16 +7,16 @@ POST_JS_SYNC = build/post-sync.js
 POST_JS_WORKER = build/post-worker.js
 
 COMMON_FILTERS = aresample scale crop overlay
-COMMON_DEMUXERS = matroska ogg avi mov flv mpegps image2 mp3 concat
+COMMON_DEMUXERS = matroska ogg avi mov flv mpegps image2 mp3 concat rawvideo
 COMMON_DECODERS = \
-	vp8 vp9 theora \
+	vp8 vp9 theora rawvideo \
 	mpeg2video mpeg4 h264 hevc \
 	png mjpeg \
 	vorbis opus \
 	mp3 ac3 aac \
 	ass ssa srt webvtt
 
-WEBM_MUXERS = webm ogg null image2
+WEBM_MUXERS = webm ogg null image2 rawvideo
 WEBM_ENCODERS = libvpx_vp8 libopus mjpeg
 FFMPEG_WEBM_BC = build/ffmpeg-webm/ffmpeg.bc
 LIBASS_PC_PATH = ../freetype/dist/lib/pkgconfig:../fribidi/dist/lib/pkgconfig
@@ -273,6 +273,7 @@ build/ffmpeg-webm/ffmpeg.bc: $(WEBM_SHARED_DEPS)
 	patch -p1 < ../ffmpeg-default-font.patch && \
 	patch -p1 < ../ffmpeg-disable-monotonic.patch && \
 	patch -p1 < ../ffmpeg-no-arc4random.patch && \
+	patch -p1 < ../ffmpeg-async.patch && \
 	EM_PKG_CONFIG_PATH=$(FFMPEG_WEBM_PC_PATH) emconfigure ./configure \
 		$(FFMPEG_COMMON_ARGS) \
 		$(addprefix --enable-encoder=,$(WEBM_ENCODERS)) \
@@ -325,7 +326,7 @@ ffmpeg-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_SYNC)
 		$(EMCC_COMMON_ARGS)
 
 ffmpeg-worker-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_WORKER)
-	emcc $(FFMPEG_WEBM_BC) $(WEBM_SHARED_DEPS) \
+	emcc -g3 $(FFMPEG_WEBM_BC) $(WEBM_SHARED_DEPS) \
 		--post-js $(POST_JS_WORKER) \
 		$(EMCC_COMMON_ARGS)
 
