@@ -31,7 +31,10 @@ var onNextInput = noop;
 
 var __setTimeout = self.setTimeout;
 
+var lastTime;
 self.setTimeout = function (fn, delay) {
+  lastTime = Date.now();
+  console.log('waiting');
   onNextInput = fn;
 };
 
@@ -43,9 +46,13 @@ function receiveStdin (data) {
   );
 
   stdinQueue.push(buffer);
+  dropInput();
 
-  __setTimeout(onNextInput, 0);
-  onNextInput = noop;
+  if (drain || stdinQueue.length > 0) {
+    console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndex);
+    __setTimeout(onNextInput, 0);
+    onNextInput = noop;
+  }
 }
 
 function finish() {
@@ -57,6 +64,7 @@ function finish() {
 
 function dropInput() {
   while(stdinQueue.length > 0 && stdinQueue[0].length === stdinIndex) {
+    self.postMessage({ "type": "stderr", data: "dropping buffer, " + stdinQueue[0].length + " size, index: " + stdinIndex });
     stdinQueue.shift();
     stdinIndex = 0;
   }
