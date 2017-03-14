@@ -14,6 +14,7 @@ self.onmessage = function (event) {
 self.onerror = function(error) {
   console.log(error);
   flushStdout();
+  flushStderr();
 
   self.postMessage({
     "type": "exit",
@@ -49,34 +50,35 @@ function receiveStdin (data) {
 
 function finish() {
   drain = true;
-  // Put EOF on the input
-  stdinQueue.push(new Int8Array([-1]));
 
   __setTimeout(onNextInput, 0);
   onNextInput = noop;
 }
 
-function stdinHandler() {
-  if (stdinQueue.length === 0) {
-    return null;
-  } else {
-    var current = stdinQueue[0];
-
-    if (stdinIndex < current.length) {
-      return current[stdinIndex++];
-    } else {
-      // TODO send the data back to avoid allocation
-      // self.postMessage({
-      //   type: 'usedBuffer',
-      //   data: current
-      // }, data.buffer);
-
-      stdinQueue.shift();
-      stdinIndex = 0;
-      return stdinHandler();
-    }
+function dropInput() {
+  while(stdinQueue.length > 0 && stdinQueue[0].length === stdinIndex) {
+    stdinQueue.shift();
+    stdinIndex = 0;
   }
-};
+}
+
+function stdinHandler() {
+  // skip empty buffers
+  dropInput();
+
+  var value;
+
+  if (stdinQueue.length === 0) {
+    value = null;
+  } else {
+    value = stdinQueue[0][stdinIndex];
+    ++stdinIndex;
+  }
+
+  dropInput();
+
+  return value;
+}
 
 var stdoutSize = 16384;
 var stdoutBuffer = new Uint8Array(stdoutSize);
@@ -84,12 +86,18 @@ var stdoutIndex = 0;
 
 function flushStdout() {
   try {
+    var out;
+
     if (stdoutIndex < stdoutSize) {
       // pass a smaller view
-      stdoutBuffer = new Uint8Array(stdoutBuffer.buffer, 0, stdoutIndex);
+      out = new Uint8Array(stdoutBuffer.buffer, 0, stdoutIndex);
+    } else {
+      out = stdoutBuffer;
     }
 
-    self.postMessage({ "type": "stdout", "data": stdoutBuffer }, [stdoutBuffer.buffer]);
+    stdoutIndex = 0;
+
+    self.postMessage({ "type": "stdout", "data": out });
   } catch(e) {
     console.error('flush error');
     console.error(e);
@@ -102,8 +110,30 @@ function stdoutHandler(byte) {
 
   if (stdoutIndex === stdoutSize) {
     flushStdout();
-    stdoutBuffer = new Uint8Array(stdoutSize);
-    stdoutIndex = 0;
+  }
+}
+
+var stderrSize = 512;
+var stderrBuffer = new Int8Array(stderrSize);
+var stderrIndex = 0;
+
+function flushStderr() {
+  var str = String.fromCharCode.apply(String, new Int8Array(stderrBuffer.buffer, 0, stderrIndex));
+  stderrIndex = 0;
+  self.postMessage({ "type": "stderr", "data": str });
+}
+
+function stderrHandler(byte) {
+  if (byte === 10 || byte === 13) {
+    flushStderr();
+    return;
+  }
+
+  stderrBuffer[stderrIndex] = byte;
+  ++stderrIndex;
+
+  if (stderrIndex === stderrSize) {
+    flushStderr();
   }
 }
 
@@ -112,5 +142,5 @@ function start(args) {
     "arguments": args,
     "stdin": stdinHandler,
     "stdout": stdoutHandler,
-    "printErr": function (str) { self.postMessage({ "type": "stderr", "data": str }); },
+    "stderr": stderrHandler,
   };
