@@ -35,7 +35,7 @@ var __setTimeout = self.setTimeout;
 var lastTime;
 self.setTimeout = function (fn, delay) {
   lastTime = Date.now();
-  console.log('waiting');
+  //console.log('waiting');
   onNextInput = fn;
 };
 
@@ -54,7 +54,7 @@ function receiveStdin(event) {
   var hasMoreInput = dropInput(queueId);
 
   if (drain || hasMoreInput) {
-    console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndices[queueId]);
+    //console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndices[queueId]);
     __setTimeout(onNextInput, 0);
     onNextInput = noop;
   }
@@ -145,6 +145,7 @@ function start(event) {
 
   var Module = {
     "arguments": event.arguments,
+    "stdin": function () { return null; },
     "stdout": stdoutHandler,
     "stderr": stderrHandler,
   };

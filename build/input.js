@@ -14,7 +14,7 @@ mergeInto(LibraryManager.library, {
 
     var top = queue[0];
 
-    if (count > top.length) {
+    if (count >= top.length) {
       // read all
       HEAPU8.set(top, ptr);
       queue.shift();

@@ -8,12 +8,12 @@ POST_JS_WORKER = build/post-worker.js
 JS_LIB_INPUT = build/input.js
 
 COMMON_FILTERS = aresample scale crop overlay
-COMMON_DEMUXERS = matroska ogg avi mov flv mpegps image2 mp3 concat rawvideo
+COMMON_DEMUXERS = matroska ogg avi mov flv mpegps image2 mp3 concat rawvideo pcm_f32le
 COMMON_DECODERS = \
 	vp8 vp9 theora rawvideo \
 	mpeg2video mpeg4 h264 hevc \
 	png mjpeg \
-	vorbis opus \
+	vorbis opus pcm_f32le pcm_f32be \
 	mp3 ac3 aac \
 	ass ssa srt webvtt
 
@@ -313,9 +313,10 @@ build/ffmpeg-mp4/ffmpeg.bc: $(MP4_SHARED_DEPS)
 EMCC_COMMON_ARGS = \
 	-s TOTAL_MEMORY=67108864 \
 	-s OUTLINING_LIMIT=20000 \
+	-s ASSERTIONS=2 \
 	-s EMTERPRETIFY=1 \
 	-s EMTERPRETIFY_ASYNC=1 \
-	-s EMTERPRETIFY_WHITELIST='["_main","_pipe_read","_ffurl_read","_io_read_packet","_fill_buffer","_avio_read","_avio_feof","_avio_rb32","_av_probe_input_buffer2","_avformat_open_input","_open_input_file","_open_files","_ffmpeg_parse_options","_ebml_parse_elem","_ebml_parse","_ebml_read_num","_matroska_parse_cluster","_matroska_read_packet","_ff_read_packet","_read_frame_internal","_avformat_find_stream_info","_av_read_frame","_transcode","_transcode$$0","_avio_r8","_ff_id3v2_read","_id3v2_read_internal","_append_packet_chunked","_av_get_packet","_rawvideo_read_packet"]' \
+	-s EMTERPRETIFY_WHITELIST='["_main","_pipe_read","_ffurl_read","_io_read_packet","_fill_buffer","_avio_read","_avio_feof","_avio_rb32","_av_probe_input_buffer2","_avformat_open_input","_open_input_file","_open_files","_ffmpeg_parse_options","_ebml_parse_elem","_ebml_parse","_ebml_read_num","_matroska_parse_cluster","_matroska_read_packet","_ff_read_packet","_read_frame_internal","_avformat_find_stream_info","_av_read_frame","_transcode","_transcode$$0","_avio_r8","_ff_id3v2_read","_id3v2_read_internal","_append_packet_chunked","_av_get_packet","_rawvideo_read_packet","_ff_pcm_read_packet"]' \
 	--memory-init-file 0 \
 	-O3 \
 	--pre-js $(PRE_JS) \
@@ -326,7 +327,7 @@ ffmpeg-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_SYNC)
 		--post-js $(POST_JS_SYNC) \
 		$(EMCC_COMMON_ARGS)
 
-ffmpeg-worker-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_WORKER)
+ffmpeg-worker-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_WORKER) $(JS_LIB_INPUT)
 	emcc -g3 $(FFMPEG_WEBM_BC) $(WEBM_SHARED_DEPS) \
 	  --js-library $(JS_LIB_INPUT) \
 		--post-js $(POST_JS_WORKER) \
