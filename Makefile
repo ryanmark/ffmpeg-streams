@@ -5,6 +5,7 @@
 PRE_JS = build/pre.js
 POST_JS_SYNC = build/post-sync.js
 POST_JS_WORKER = build/post-worker.js
+JS_LIB_INPUT = build/input.js
 
 COMMON_FILTERS = aresample scale crop overlay
 COMMON_DEMUXERS = matroska ogg avi mov flv mpegps image2 mp3 concat rawvideo
@@ -327,6 +328,7 @@ ffmpeg-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_SYNC)
 
 ffmpeg-worker-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_WORKER)
 	emcc -g3 $(FFMPEG_WEBM_BC) $(WEBM_SHARED_DEPS) \
+	  --js-library $(JS_LIB_INPUT) \
 		--post-js $(POST_JS_WORKER) \
 		$(EMCC_COMMON_ARGS)
 

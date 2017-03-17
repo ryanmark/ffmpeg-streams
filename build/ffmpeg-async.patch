@@ -1,16 +1,19 @@
 diff --git a/libavformat/file.c b/libavformat/file.c
-index 264542a36a..7531937da2 100644
+index 264542a36a..8e8a02db4f 100644
 --- a/libavformat/file.c
 +++ b/libavformat/file.c
-@@ -37,6 +37,7 @@
+@@ -37,6 +37,10 @@
  #include <stdlib.h>
  #include "os_support.h"
  #include "url.h"
 +#include "emscripten.h"
++
++extern int js_is_queue_empty(int queueId);
++extern int js_read_from_queue(int queueId, unsigned char *buf, int count);
  
  /* Some systems may not have S_ISFIFO */
  #ifndef S_ISFIFO
-@@ -115,6 +116,55 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
+@@ -115,6 +119,26 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
      return (ret == -1) ? AVERROR(errno) : ret;
  }
  
@@ -21,41 +24,12 @@ index 264542a36a..7531937da2 100644
 +
 +    size = FFMIN(size, c->blocksize);
 +
-+#if __EMSCRIPTEN__
-+    /* yield if the stdinQueue is empty */
-+    while (EM_ASM_INT({
-+          if (drain) return 0;
-+          dropInput();
-+          if (stdinQueue.length === 0) return 1;
-+          return 0;
-+        }, 0)) {
++    /* yield if the queue is empty */
++    while (js_is_queue_empty(c->fd)) {
 +      emscripten_sleep(1);
 +    }
 +
-+    /* ret = read(c->fd, buf, size); */
-+    ret = EM_ASM_INT({
-+        var memOffset = $0;
-+        var bufSize = $1;
-+
-+        if (stdinQueue.length === 0) {
-+          return 0;
-+        }
-+
-+        var top = stdinQueue[0];
-+
-+        if (bufSize > top.length) {
-+          // read all
-+          HEAPU8.set(top, memOffset);
-+          stdinQueue.shift();
-+          return top.length;
-+        } else {
-+          // read only part
-+          HEAPU8.set(top.subarray(0, bufSize), memOffset);
-+          stdinQueue[0] = top.subarray(bufSize);
-+          return bufSize;
-+        }
-+      }, buf, size);
-+#endif
++    ret = js_read_from_queue(c->fd, buf, size);
 +
 +    if (ret == 0 && c->follow) {
 +        return AVERROR(EAGAIN);
@@ -66,7 +40,7 @@ index 264542a36a..7531937da2 100644
  static int file_write(URLContext *h, const unsigned char *buf, int size)
  {
      FileContext *c = h->priv_data;
-@@ -386,7 +436,7 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
+@@ -386,7 +410,7 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
  const URLProtocol ff_pipe_protocol = {
      .name                = "pipe",
      .url_open            = pipe_open,

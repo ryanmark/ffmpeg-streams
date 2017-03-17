@@ -1,10 +1,14 @@
+var drain = false;
+// need to be setup in start event
+var stdinQueues;
+var stdinIndices;
+
 self.onmessage = function (event) {
   var type = event.data.type;
-  var data = event.data.data;
 
   switch(type) {
-  case 'stdin':  receiveStdin(data); break;
-  case 'run':    start(data);        break;
+  case 'stdin':  receiveStdin(event.data); break;
+  case 'start':  start(event.data);        break;
   case 'finish': finish();           break;
   default:
     self.postMessage({ type: 'error', data: 'unknown message type: ' + type });
@@ -22,9 +26,6 @@ self.onerror = function(error) {
   });
 };
 
-var drain = false;
-var stdinQueue = [];
-var stdinIndex = 0;
 
 var noop = function () {};
 var onNextInput = noop;
@@ -38,18 +39,22 @@ self.setTimeout = function (fn, delay) {
   onNextInput = fn;
 };
 
-function receiveStdin (data) {
+function receiveStdin(event) {
+  var queueId = event.pipe || 0;
+  var queue = stdinQueues[queueId];
+  var data = event.data;
+
   var buffer = (
     data instanceof ArrayBuffer ? new Uint8Array(data) :
     data instanceof Blob ? new Uint8Array((new FileReaderSync()).readAsArrayBuffer(data)) :
     data
   );
+  queue.push(buffer);
 
-  stdinQueue.push(buffer);
-  dropInput();
+  var hasMoreInput = dropInput(queueId);
 
-  if (drain || stdinQueue.length > 0) {
-    console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndex);
+  if (drain || hasMoreInput) {
+    console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndices[queueId]);
     __setTimeout(onNextInput, 0);
     onNextInput = noop;
   }
@@ -62,30 +67,17 @@ function finish() {
   onNextInput = noop;
 }
 
-function dropInput() {
-  while(stdinQueue.length > 0 && stdinQueue[0].length === stdinIndex) {
-    self.postMessage({ "type": "stderr", data: "dropping buffer, " + stdinQueue[0].length + " size, index: " + stdinIndex });
-    stdinQueue.shift();
-    stdinIndex = 0;
-  }
-}
+function dropInput(queueId) {
+  var queue = stdinQueues[queueId];
+  var index = stdinIndices[queueId];
 
-function stdinHandler() {
-  // skip empty buffers
-  dropInput();
-
-  var value;
-
-  if (stdinQueue.length === 0) {
-    value = null;
-  } else {
-    value = stdinQueue[0][stdinIndex];
-    ++stdinIndex;
+  while(queue.length > 0 && queue.length === index) {
+    queue.shift();
+    stdinIndices[queueId] = 0;
+    index = 0;
   }
 
-  dropInput();
-
-  return value;
+  return queue.length > 0;
 }
 
 var stdoutSize = 16384;
@@ -145,10 +137,14 @@ function stderrHandler(byte) {
   }
 }
 
-function start(args) {
+function start(event) {
+  drain = false;
+  var inputCount = event.inputCount || 1;
+  stdinIndices = new Uint32Array(inputCount);
+  stdinQueues = new Array(inputCount).fill(1).map(function () { return []; });
+
   var Module = {
-    "arguments": args,
-    "stdin": stdinHandler,
+    "arguments": event.arguments,
     "stdout": stdoutHandler,
     "stderr": stderrHandler,
   };
