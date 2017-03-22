@@ -148,4 +148,6 @@ function start(event) {
     "stdin": function () { return null; },
     "stdout": stdoutHandler,
     "stderr": stderrHandler,
+    "noExitRuntime": true,
+    "onExit": function (status) { self.onerror({ status: status }); },
   };

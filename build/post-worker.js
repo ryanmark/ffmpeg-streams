@@ -1,1 +1,2 @@
+self.postMessage({ type: 'ready' });
 }
