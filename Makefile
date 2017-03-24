@@ -7,7 +7,7 @@ POST_JS_SYNC = build/post-sync.js
 POST_JS_WORKER = build/post-worker.js
 JS_LIB_INPUT = build/input.js
 
-COMMON_FILTERS = aresample scale
+COMMON_FILTERS = aresample amerge scale
 COMMON_DEMUXERS = rawvideo pcm_f32le
 COMMON_DECODERS = rawvideo pcm_f32le
 
@@ -24,7 +24,7 @@ LIBASS_DEPS = \
 	build/fribidi/dist/lib/libfribidi.so \
 	build/freetype/dist/lib/libfreetype.so
 WEBM_SHARED_DEPS = \
-	build/opus/dist/lib/libopus.dylib \
+	build/opus/dist/lib/libopus.so \
 	build/libvpx/dist/lib/libvpx.so
 
 MP4_MUXERS = mp4 mp3 null
@@ -67,7 +67,7 @@ clean-ffmpeg-mp4:
 build/opus/configure:
 	cd build/opus && ./autogen.sh
 
-build/opus/dist/lib/libopus.dylib: build/opus/configure
+build/opus/dist/lib/libopus.so: build/opus/configure
 	cd build/opus && \
 	emconfigure ./configure \
 		CFLAGS=-O3 \
@@ -83,7 +83,10 @@ build/opus/dist/lib/libopus.dylib: build/opus/configure
 		--disable-intrinsics \
 		&& \
 	emmake make -j8 && \
-	emmake make install
+	emmake make install && \
+	if [ -e dist/lib/libopus.dylib ]; then \
+		cp dist/lib/libopus.dylib dist/lib/libopus.so; \
+	fi
 
 build/freetype/builds/unix/configure:
 	cd build/freetype && ./autogen.sh
