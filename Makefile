@@ -12,7 +12,7 @@ COMMON_DEMUXERS = rawvideo pcm_f32le
 COMMON_DECODERS = rawvideo pcm_f32le
 
 WEBM_MUXERS = webm
-WEBM_ENCODERS = libvpx_vp8 libopus
+WEBM_ENCODERS = libvpx_vp8 libvpx_vp9 libopus
 FFMPEG_WEBM_BC = build/ffmpeg-webm/ffmpeg.bc
 LIBASS_PC_PATH = ../freetype/dist/lib/pkgconfig:../fribidi/dist/lib/pkgconfig
 FFMPEG_WEBM_PC_PATH_ = \
@@ -166,7 +166,7 @@ build/libvpx/dist/lib/libvpx.so:
 		--disable-webm-io \
 		--disable-libyuv \
 		--disable-vp8-decoder \
-		--disable-vp9 \
+		--disable-vp9-decoder \
 		&& \
 	emmake make -j8 && \
 	emmake make install
@@ -255,6 +255,7 @@ FFMPEG_COMMON_ARGS = \
 	$(addprefix --enable-demuxer=,$(COMMON_DEMUXERS)) \
 	--enable-protocol=file \
 	--enable-protocol=pipe \
+	--enable-bsf=vp9_superframe \
 	$(addprefix --enable-filter=,$(COMMON_FILTERS)) \
 	--disable-bzlib \
 	--disable-iconv \
