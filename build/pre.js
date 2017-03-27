@@ -35,7 +35,10 @@ var __setTimeout = self.setTimeout;
 var lastTime;
 self.setTimeout = function (fn, delay) {
   lastTime = Date.now();
-  //console.log('waiting');
+  self.postMessage({
+    type: 'hungry',
+    data: stdinQueues.map(function (queue) { return queue.length; }),
+  });
   onNextInput = fn;
 };
 
