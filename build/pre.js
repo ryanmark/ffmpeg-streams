@@ -35,10 +35,7 @@ var __setTimeout = self.setTimeout;
 var lastTime;
 self.setTimeout = function (fn, delay) {
   lastTime = Date.now();
-  self.postMessage({
-    type: 'hungry',
-    data: stdinQueues.map(function (queue) { return queue.length; }),
-  });
+  reportQueueSizes();
   onNextInput = fn;
 };
 
@@ -55,12 +52,19 @@ function receiveStdin(event) {
   queue.push(buffer);
 
   var hasMoreInput = dropInput(queueId);
+  reportQueueSizes();
 
   if (drain || hasMoreInput) {
-    //console.log('waited for ' + (Date.now() - lastTime) + 'ms, index: ' + stdinIndices[queueId]);
     __setTimeout(onNextInput, 0);
     onNextInput = noop;
   }
+}
+
+function reportQueueSizes() {
+  self.postMessage({
+    type: 'queueSizes',
+    data: stdinQueues.map(function (queue) { return queue.length; }),
+  });
 }
 
 function finish() {

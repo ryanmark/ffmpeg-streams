@@ -18,11 +18,13 @@ mergeInto(LibraryManager.library, {
       // read all
       HEAPU8.set(top, ptr);
       queue.shift();
+      reportQueueSizes();
       return top.length;
     } else {
       // read only part
       HEAPU8.set(top.subarray(0, count), ptr);
       queue[0] = top.subarray(count);
+      reportQueueSizes();
       return count;
     }
   },
