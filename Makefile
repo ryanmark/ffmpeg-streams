@@ -11,18 +11,19 @@ COMMON_FILTERS = aresample amerge scale
 COMMON_DEMUXERS = rawvideo pcm_f32le
 COMMON_DECODERS = rawvideo pcm_f32le
 
+LIBASS_PC_PATH = ../freetype/dist/lib/pkgconfig:../fribidi/dist/lib/pkgconfig
+LIBASS_DEPS = \
+	build/fribidi/dist/lib/libfribidi.so \
+	build/freetype/dist/lib/libfreetype.so
+
 WEBM_MUXERS = webm
 WEBM_ENCODERS = libvpx_vp8 libvpx_vp9 libopus
 FFMPEG_WEBM_BC = build/ffmpeg-webm/ffmpeg.bc
-LIBASS_PC_PATH = ../freetype/dist/lib/pkgconfig:../fribidi/dist/lib/pkgconfig
 FFMPEG_WEBM_PC_PATH_ = \
 	$(LIBASS_PC_PATH):\
 	../libass/dist/lib/pkgconfig:\
 	../opus/dist/lib/pkgconfig
 FFMPEG_WEBM_PC_PATH = $(subst : ,:,$(FFMPEG_WEBM_PC_PATH_))
-LIBASS_DEPS = \
-	build/fribidi/dist/lib/libfribidi.so \
-	build/freetype/dist/lib/libfreetype.so
 WEBM_SHARED_DEPS = \
 	build/opus/dist/lib/libopus.so \
 	build/libvpx/dist/lib/libvpx.so
@@ -35,9 +36,19 @@ MP4_SHARED_DEPS = \
 	build/lame/dist/lib/libmp3lame.so \
 	build/x264/dist/lib/libx264.so
 
-all: webm mp4
+GIF_MUXERS = null
+GIF_ENCODERS = gif
+FFMPEG_GIF_BC = build/ffmpeg-gif/ffmpeg.bc
+FFMPEG_GIF_PC_PATH_ = \
+	$(LIBASS_PC_PATH):\
+	../libass/dist/lib/pkgconfig
+FFMPEG_GIF_PC_PATH = $(subst : ,:,$(FFMPEG_GIF_PC_PATH_))
+GIF_SHARED_DEPS = $(LIBASS_DEPS)
+
+all: webm mp4 gif
 webm: ffmpeg-webm.js ffmpeg-worker-webm.js
 mp4: ffmpeg-mp4.js ffmpeg-worker-mp4.js
+gif: ffmpeg-gif.js ffmpeg-worker-gif.js
 
 clean: clean-js \
 	clean-freetype clean-fribidi clean-libass \
@@ -63,6 +74,8 @@ clean-ffmpeg-webm:
 	-cd build/ffmpeg-webm && rm -f ffmpeg.bc && make clean
 clean-ffmpeg-mp4:
 	-cd build/ffmpeg-mp4 && rm -f ffmpeg.bc && make clean
+clean-ffmpeg-gif:
+	-cd build/ffmpeg-gif && rm -f ffmpeg.bc && make clean
 
 build/opus/configure:
 	cd build/opus && ./autogen.sh
@@ -119,7 +132,6 @@ build/fribidi/configure:
 build/fribidi/dist/lib/libfribidi.so: build/fribidi/configure
 	cd build/fribidi && \
 	git reset --hard && \
-	patch -p1 < ../fribidi-make.patch && \
 	emconfigure ./configure \
 		CFLAGS=-O3 \
 		NM=llvm-nm \
@@ -288,7 +300,10 @@ build/ffmpeg-webm/ffmpeg.bc: $(WEBM_SHARED_DEPS)
 build/ffmpeg-mp4/ffmpeg.bc: $(MP4_SHARED_DEPS)
 	cd build/ffmpeg-mp4 && \
 	git reset --hard && \
+	patch -p1 < ../ffmpeg-default-font.patch && \
 	patch -p1 < ../ffmpeg-disable-monotonic.patch && \
+	patch -p1 < ../ffmpeg-no-arc4random.patch && \
+	patch -p1 < ../ffmpeg-async.patch && \
 	EM_PKG_CONFIG_PATH=$(FFMPEG_MP4_PC_PATH) emconfigure ./configure \
 		$(FFMPEG_COMMON_ARGS) \
 		$(addprefix --enable-encoder=,$(MP4_ENCODERS)) \
@@ -298,6 +313,22 @@ build/ffmpeg-mp4/ffmpeg.bc: $(MP4_SHARED_DEPS)
 		--enable-libx264 \
 		--extra-cflags="-I../lame/dist/include" \
 		--extra-ldflags="-L../lame/dist/lib" \
+		&& \
+	emmake make -j8 && \
+	cp ffmpeg ffmpeg.bc
+
+build/ffmpeg-gif/ffmpeg.bc: $(GIF_SHARED_DEPS)
+	cd build/ffmpeg-gif && \
+	git reset --hard && \
+	patch -p1 < ../ffmpeg-default-font.patch && \
+	patch -p1 < ../ffmpeg-disable-monotonic.patch && \
+	patch -p1 < ../ffmpeg-no-arc4random.patch && \
+	patch -p1 < ../ffmpeg-async.patch && \
+	EM_PKG_CONFIG_PATH=$(FFMPEG_GIF_PC_PATH) emconfigure ./configure \
+		$(FFMPEG_COMMON_ARGS) \
+		$(addprefix --enable-encoder=,$(GIF_ENCODERS)) \
+		$(addprefix --enable-muxer=,$(GIF_MUXERS)) \
+		$(addprefix --enable-filter=drawtext,$(COMMON_FILTERS)) \
 		&& \
 	emmake make -j8 && \
 	cp ffmpeg ffmpeg.bc
@@ -320,6 +351,7 @@ EMCC_COMMON_ARGS = \
 
 ffmpeg-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_SYNC)
 	emcc $(FFMPEG_WEBM_BC) $(WEBM_SHARED_DEPS) \
+		--pre-js $(PRE_JS) \
 		--post-js $(POST_JS_SYNC) \
 		$(EMCC_COMMON_ARGS)
 
@@ -332,10 +364,26 @@ ffmpeg-worker-webm.js: $(FFMPEG_WEBM_BC) $(PRE_JS) $(POST_JS_WORKER) $(JS_LIB_IN
 
 ffmpeg-mp4.js: $(FFMPEG_MP4_BC) $(PRE_JS) $(POST_JS_SYNC)
 	emcc $(FFMPEG_MP4_BC) $(MP4_SHARED_DEPS) \
+		--pre-js $(PRE_JS) \
 		--post-js $(POST_JS_SYNC) \
 		$(EMCC_COMMON_ARGS)
 
-ffmpeg-worker-mp4.js: $(FFMPEG_MP4_BC) $(PRE_JS) $(POST_JS_WORKER)
+ffmpeg-worker-mp4.js: $(FFMPEG_MP4_BC) $(PRE_JS) $(POST_JS_WORKER) $(JS_LIB_INPUT)
 	emcc $(FFMPEG_MP4_BC) $(MP4_SHARED_DEPS) \
+	  --js-library $(JS_LIB_INPUT) \
+		--pre-js $(PRE_JS) \
+		--post-js $(POST_JS_WORKER) \
+		$(EMCC_COMMON_ARGS)
+
+ffmpeg-gif.js: $(FFMPEG_GIF_BC) $(PRE_JS) $(POST_JS_SYNC)
+	emcc $(FFMPEG_GIF_BC) $(GIF_SHARED_DEPS) \
+		--pre-js $(PRE_JS) \
+		--post-js $(POST_JS_SYNC) \
+		$(EMCC_COMMON_ARGS)
+
+ffmpeg-worker-gif.js: $(FFMPEG_GIF_BC) $(PRE_JS) $(POST_JS_WORKER) $(JS_LIB_INPUT)
+	emcc $(FFMPEG_GIF_BC) $(GIF_SHARED_DEPS) \
+	  --js-library $(JS_LIB_INPUT) \
+		--pre-js $(PRE_JS) \
 		--post-js $(POST_JS_WORKER) \
 		$(EMCC_COMMON_ARGS)
