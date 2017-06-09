@@ -1,2 +1,4 @@
-self.postMessage({ type: 'ready' });
+  self.postMessage({ type: 'done' });
 }
+
+self.postMessage({ type: 'ready' });

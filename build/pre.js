@@ -8,7 +8,7 @@ self.onmessage = function (event) {
 
   switch(type) {
   case 'stdin':  receiveStdin(event.data); break;
-  case 'start':  start(event.data);        break;
+  case 'run':  run(event.data);        break;
   case 'finish': finish();           break;
   default:
     self.postMessage({ type: 'error', data: 'unknown message type: ' + type });
@@ -104,7 +104,7 @@ function flushStdout() {
 
     stdoutIndex = 0;
 
-    self.postMessage({ "type": "stdout", "data": out });
+    self.postMessage({ "type": "stdout", "data": String.fromCharCode.apply(String, out) });
   } catch(e) {
     console.error('flush error');
     console.error(e);
@@ -144,7 +144,7 @@ function stderrHandler(byte) {
   }
 }
 
-function start(event) {
+function run(event) {
   drain = false;
   var inputCount = event.inputCount || 1;
   stdinIndices = new Uint32Array(inputCount);

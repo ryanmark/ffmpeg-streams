@@ -13,7 +13,7 @@ COMMON_DECODERS = rawvideo pcm_f32le
 
 LIBASS_PC_PATH = ../freetype/dist/lib/pkgconfig:../fribidi/dist/lib/pkgconfig
 LIBASS_DEPS = \
-	build/fribidi/dist/lib/libfribidi.so \
+	build/fribidi/dist/lib/libfribidi.dylib \
 	build/freetype/dist/lib/libfreetype.so
 
 WEBM_MUXERS = webm
@@ -126,15 +126,17 @@ build/freetype/dist/lib/libfreetype.so: build/freetype/builds/unix/configure
 	emmake make -j8 && \
 	emmake make install
 
-build/fribidi/configure:
-	cd build/fribidi && ./bootstrap
-
-build/fribidi/dist/lib/libfribidi.so: build/fribidi/configure
+# removed...
+#   NM=llvm-nm \
+# from configure below
+build/fribidi/dist/lib/libfribidi.dylib:
 	cd build/fribidi && \
 	git reset --hard && \
+	git clean -df && \
+	./bootstrap && \
+	patch -p1 < ../fribidi-make.patch && \
 	emconfigure ./configure \
 		CFLAGS=-O3 \
-		NM=llvm-nm \
 		--prefix="$$(pwd)/dist" \
 		--disable-dependency-tracking \
 		--disable-debug \
